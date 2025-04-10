@@ -100,7 +100,7 @@ double mse(const PgmImage *img1, const PgmImage *img2) {
     }
 
     // Compute and return the mean squared error.
-    return (double)sum_squared_error / total_pixels;
+    return (double)sum_squared_error / total_pixels / 255.0 / 255.0; // Normalize to [0, 1]
 }
 
 // Global SSIM implementation for two PGM images.
@@ -668,7 +668,7 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
         if (gen % 100 == 0) {
             PgmImage *dithered = chromosomeToPgm(&population[top_index]);
             char *filename = malloc(sizeof(char) * 100);
-            sprintf(filename, "../output/dithered_ssim_adapt_glob_%i.pgm", gen);
+            sprintf(filename, "../output/dithered_mse_%i.pgm", gen);
             WritePgm(dithered, filename);
 
             FreePgm(dithered);
@@ -700,10 +700,10 @@ int main(void) {
     if (target->width_ * target->height_ != CHROMOSOME_SIZE) {
         fprintf(stderr, "Error: image must be of size %i\n", CHROMOSOME_SIZE);
     }
-    const Chromosome result = genetic_algorithm(ssim_adaptive_and_global_loss_function, mutation_function, crossover_function);
+    const Chromosome result = genetic_algorithm(mse_loss_function, mutation_function, crossover_function);
 
     PgmImage *dithered = chromosomeToPgm(&result);
-    WritePgm(dithered, "../output/dithered_ssim_adapt_glob.pgm");
+    WritePgm(dithered, "../output/dithered_mse.pgm");
 
     FreePgm(target);
     FreePgm(dithered);
