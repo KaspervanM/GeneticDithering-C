@@ -1,0 +1,3 @@
+[submodule "netpbm-c"]
+	path = netpbm-c
+	url = git@github.com:evanpacini/netpbm-c.git
