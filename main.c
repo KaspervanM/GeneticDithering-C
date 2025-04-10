@@ -154,115 +154,6 @@ double global_ssim(const PgmImage *img1, const PgmImage *img2) {
     return numerator / denominator;
 }
 
-#define CLAMP(x) ((x) < 0 ? 0 : ((x) > 255 ? 255 : (x)))
-
-// Apply a Sobel filter to compute edge magnitude at a pixel
-double sobel_magnitude(const uint8_t *data, int x, int y, int width, int height) {
-    // Sobel kernels
-    int Gx[3][3] = {
-        {-1, 0, 1},
-        {-2, 0, 2},
-        {-1, 0, 1}
-    };
-    int Gy[3][3] = {
-        {-1, -2, -1},
-        { 0,  0,  0},
-        { 1,  2,  1}
-    };
-
-    double gx = 0.0, gy = 0.0;
-
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            int px = CLAMP(x + dx);
-            int py = CLAMP(y + dy);
-            if (px >= width) px = width - 1;
-            if (py >= height) py = height - 1;
-            uint8_t pixel = data[py * width + px];
-            gx += Gx[dy + 1][dx + 1] * pixel;
-            gy += Gy[dy + 1][dx + 1] * pixel;
-        }
-    }
-
-    return sqrt(gx * gx + gy * gy);
-}
-
-double edge_preservation_loss(const PgmImage *img1, const PgmImage *img2) {
-    if (img1->width_ != img2->width_ || img1->height_ != img2->height_) {
-        fprintf(stderr, "Error: image dimensions do not match.\n");
-        return -1.0;
-    }
-
-    uint32_t width = img1->width_;
-    uint32_t height = img1->height_;
-    uint64_t sum_squared_diff = 0;
-    uint32_t pixel_count = 0;
-
-    for (uint32_t y = 1; y < height - 1; ++y) {
-        for (uint32_t x = 1; x < width - 1; ++x) {
-            double edge1 = sobel_magnitude(img1->data_, x, y, width, height);
-            double edge2 = sobel_magnitude(img2->data_, x, y, width, height);
-            double diff = edge1 - edge2;
-            sum_squared_diff += (uint64_t)(diff * diff);
-            ++pixel_count;
-        }
-    }
-
-    return (double)sum_squared_diff / pixel_count;
-}
-
-// Compute the combined spatial frequency for a single image.
-// Spatial frequency (SF) is computed as: SF = sqrt(RF² + CF²)
-// where RF (row frequency) and CF (column frequency) are derived from the differences between adjacent pixels.
-static double compute_spatial_frequency(const PgmImage *img) {
-    uint32_t w = img->width_, h = img->height_;
-    double row_diff_sum = 0.0, col_diff_sum = 0.0;
-    uint32_t row_count = 0, col_count = 0;
-
-    // Compute differences along rows
-    for (uint32_t y = 0; y < h; ++y) {
-        for (uint32_t x = 0; x < w - 1; ++x) {
-            double diff = (double)img->data_[y * w + (x + 1)] - (double)img->data_[y * w + x];
-            row_diff_sum += diff * diff;
-            ++row_count;
-        }
-    }
-
-    // Compute differences along columns
-    for (uint32_t y = 0; y < h - 1; ++y) {
-        for (uint32_t x = 0; x < w; ++x) {
-            double diff = (double)img->data_[(y + 1) * w + x] - (double)img->data_[y * w + x];
-            col_diff_sum += diff * diff;
-            ++col_count;
-        }
-    }
-
-    // Calculate the root mean square of the differences along each direction.
-    double rf = (row_count > 0) ? sqrt(row_diff_sum / row_count) : 0.0;  // Row Frequency
-    double cf = (col_count > 0) ? sqrt(col_diff_sum / col_count) : 0.0;  // Column Frequency
-
-    // Combined spatial frequency.
-    double sf = sqrt(rf * rf + cf * cf);
-    return sf;
-}
-
-// Compute the spatial frequency matching loss between two images.
-// This is defined as the squared difference between the computed spatial frequencies.
-double spatial_frequency_loss(const PgmImage *img1, const PgmImage *img2) {
-    // Ensure that the images have the same dimensions.
-    if (img1->width_ != img2->width_ || img1->height_ != img2->height_) {
-        fprintf(stderr, "Error: image dimensions do not match.\n");
-        return -1.0;
-    }
-
-    double sf1 = compute_spatial_frequency(img1);
-    double sf2 = compute_spatial_frequency(img2);
-
-    // Loss is the squared difference between the spatial frequencies.
-    double loss = (sf1 - sf2) * (sf1 - sf2);
-    return loss;
-}
-
 // Compute SSIM over 8x8 blocks over the entire image
 double ssim(const PgmImage *img1, const PgmImage *img2) {
     // Check that image dimensions match.
@@ -416,46 +307,6 @@ double ssim_loss_function(const Chromosome *chromosome) {
     return (1.0 - ssim_index) * (1.0 - ssim_index); // Squared to make it more sensitive to small changes.
 }
 
-// Total Variation (TV) Loss Function.
-// This function computes the average absolute difference between adjacent pixels
-// in both the horizontal and vertical directions.
-double tv_loss_function(const Chromosome *chromosome) {
-    // Convert the chromosome to a PgmImage.
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-
-    double tv_sum = 0.0;
-    uint32_t count = 0;
-
-    // Loop over each pixel and compute differences with right and bottom neighbors.
-    for (uint32_t i = 0; i < pgm->height_; i++) {
-        for (uint32_t j = 0; j < pgm->width_; j++) {
-            uint32_t idx = i * pgm->width_ + j;
-
-            // Horizontal difference (if not at the right border)
-            if (j < pgm->width_ - 1) {
-                double diff = fabs((double)pgm->data_[idx] - (double)pgm->data_[idx + 1]) / 255.0;
-                tv_sum += diff;
-                count++;
-            }
-
-            // Vertical difference (if not at the bottom border)
-            if (i < pgm->height_ - 1) {
-                double diff = fabs((double)pgm->data_[idx] - (double)pgm->data_[idx + pgm->width_]) / 255.0;
-                tv_sum += diff;
-                count++;
-            }
-        }
-    }
-
-    // Clean up the temporary image.
-    free(pgm->data_);
-    free(pgm);
-
-    // Return the average total variation loss.
-    // Lower loss values indicate smoother images with fewer visible block artifacts.
-    return (count > 0) ? tv_sum / count * tv_sum / count : 0.0;
-}
-
 double adaptive_local_ssim(const PgmImage *img1, const PgmImage *img2,
                              uint32_t i, uint32_t j, uint32_t window_size,
                              double threshold, double low_weight) {
@@ -573,14 +424,6 @@ double ssim_overlapping_loss_function(const Chromosome *chromosome) {
     return (1.0 - ssim_index) * (1.0 - ssim_index); // Squared to make it more sensitive to small changes.
 }
 
-double ssim_tv_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    double ssim_index = ssim(pgm, target);
-    double tv_loss = tv_loss_function(chromosome);
-    free(pgm->data_);
-    free(pgm);
-    return (1.0 - ssim_index) * (1.0 - ssim_index) + 0.1 * tv_loss;
-}
 
 double ssim_overlapping_and_global(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
@@ -616,49 +459,6 @@ double global_ssim_loss_function(const Chromosome *chromosome) {
     free(pgm->data_);
     free(pgm);
     return (1 - loss) * (1 - loss); // SSIM is between 0 and 1, so we want to maximize it. squaring it makes it more sensitive to small changes.
-}
-
-double edge_preservation_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    const double loss = edge_preservation_loss(pgm, target);
-    free(pgm->data_);
-    free(pgm);
-    return loss;
-}
-
-double spatial_frequency_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    const double loss = spatial_frequency_loss(pgm, target);
-    free(pgm->data_);
-    free(pgm);
-    return loss;
-}
-
-double spatial_frequency_and_edge_preservation_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    double ssim_loss = global_ssim(pgm, target);
-    const double loss = spatial_frequency_loss(pgm, target) * 10 + edge_preservation_loss(pgm, target) + (1 - ssim_loss) * (1 - ssim_loss) * 400000;
-    free(pgm->data_);
-    free(pgm);
-    return loss;
-}
-
-double and_edge_preservation_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    double ssim_loss = global_ssim(pgm, target);
-    const double loss = edge_preservation_loss(pgm, target) + (1 - ssim_loss) * (1 - ssim_loss) * 400000;
-    free(pgm->data_);
-    free(pgm);
-    return loss;
-}
-
-double and_spatial_frequency_loss_function(const Chromosome *chromosome) {
-    PgmImage *pgm = chromosomeToPgm(chromosome);
-    double ssim_loss = global_ssim(pgm, target);
-    const double loss = spatial_frequency_loss(pgm, target) + (1 - ssim_loss) * (1 - ssim_loss) * 40000;
-    free(pgm->data_);
-    free(pgm);
-    return loss;
 }
 
 // --- Example Mutation Function ---
@@ -698,6 +498,7 @@ Chromosome * initialize_population(const LossFunction lossFunc) {
     return population;
 }
 
+// --- Initialize Population with images that are thresholds of the target image, but each mutated a little bit ---
 Chromosome * initialize_population_of_threshold(const LossFunction lossFunc) {
     Chromosome *population = malloc(sizeof(Chromosome) * POOL_SIZE);
     const double old_mutation_rate = mutation_rate;
@@ -718,18 +519,6 @@ Chromosome * initialize_population_of_threshold(const LossFunction lossFunc) {
     }
     mutation_rate = old_mutation_rate;
     return population;
-}
-
-// --- Select Two Parents (Simple Tournament Selection) ---
-void select_parents(Chromosome population[POOL_SIZE], Chromosome **parent1, Chromosome **parent2) {
-    int idx1 = fast_rand() % POOL_SIZE;
-    int idx2 = fast_rand() % POOL_SIZE;
-    // In tournament selection, choose the one with lower loss.
-    *parent1 = population[idx1].loss < population[idx2].loss ? &population[idx1] : &population[idx2];
-
-    idx1 = fast_rand() % POOL_SIZE;
-    idx2 = fast_rand() % POOL_SIZE;
-    *parent2 = population[idx1].loss < population[idx2].loss ? &population[idx1] : &population[idx2];
 }
 
 // Function to perform weighted (roulette wheel) selection.
@@ -774,7 +563,7 @@ Chromosome* roulette_selection(Chromosome population[POOL_SIZE]) {
 }
 
 // --- Select Two Parents (Roulette Wheel Selection) ---
-int select_parents_probabilistic(Chromosome population[POOL_SIZE], Chromosome **parent1, Chromosome **parent2) {
+int select_parents(Chromosome population[POOL_SIZE], Chromosome **parent1, Chromosome **parent2) {
     *parent1 = roulette_selection(population);
     if (*parent1 == nullptr) {
         return 1;
@@ -841,7 +630,7 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
         // Create new population array
         for (int i = 1; i < POOL_SIZE; i++) {
             Chromosome *parent1, *parent2;
-            too_similar = select_parents_probabilistic(population, &parent1, &parent2);
+            too_similar = select_parents(population, &parent1, &parent2);
             if (too_similar) {
                 break;
             }
