@@ -121,14 +121,14 @@ double global_ssim(const PgmImage *img1, const PgmImage *img2) {
         sum1 += (double)p1[i];
         sum2 += (double)p2[i];
     }
-    double mu1 = sum1 / total_pixels;
-    double mu2 = sum2 / total_pixels;
+    const double mu1 = sum1 / total_pixels;
+    const double mu2 = sum2 / total_pixels;
 
     // Second pass: Compute variances (σ₁², σ₂²) and covariance (σ₁₂)
     double var1 = 0.0, var2 = 0.0, covar = 0.0;
     for (uint32_t i = 0; i < total_pixels; i++) {
-        double d1 = (double)p1[i] - mu1;
-        double d2 = (double)p2[i] - mu2;
+        const double d1 = (double)p1[i] - mu1;
+        const double d2 = (double)p2[i] - mu2;
         var1 += d1 * d1;
         var2 += d2 * d2;
         covar += d1 * d2;
@@ -142,15 +142,16 @@ double global_ssim(const PgmImage *img1, const PgmImage *img2) {
 
     // Constants for stability, based on the dynamic range of pixel values.
     // For an 8-bit image, L = 255.
-    const double L = 255.0;
-    const double K1 = 0.01, K2 = 0.03;
-    const double C1 = (K1 * L) * (K1 * L);  // typically ≈ 6.5025
-    const double C2 = (K2 * L) * (K2 * L);  // typically ≈ 58.5225
+    constexpr double L = 255.0;
+    constexpr double K1 = 0.01;
+    constexpr double K2 = 0.03;
+    constexpr double C1 = (K1 * L) * (K1 * L);  // typically ≈ 6.5025
+    constexpr double C2 = (K2 * L) * (K2 * L);  // typically ≈ 58.5225
 
     // SSIM formula:
     // SSIM = ((2*μ₁*μ₂ + C1) * (2*σ₁₂ + C2)) / ((μ₁² + μ₂² + C1) * (σ₁² + σ₂² + C2))
-    double numerator   = (2 * mu1 * mu2 + C1) * (2 * covar + C2);
-    double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (var1 + var2 + C2);
+    const double numerator   = (2 * mu1 * mu2 + C1) * (2 * covar + C2);
+    const double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (var1 + var2 + C2);
 
     if (denominator == 0.0) {
         fprintf(stderr, "Error: denominator in SSIM calculation is zero.\n");
@@ -169,11 +170,11 @@ double ssim(const PgmImage *img1, const PgmImage *img2) {
     }
 
     // Constants as per the SSIM paper.
-    const double K1 = 0.01;
-    const double K2 = 0.03;
-    const double L = 255.0; // Dynamic range of pixel values.
-    const double C1 = (K1 * L) * (K1 * L);
-    const double C2 = (K2 * L) * (K2 * L);
+    constexpr double K1 = 0.01;
+    constexpr double K2 = 0.03;
+    constexpr double L = 255.0; // Dynamic range of pixel values.
+    constexpr double C1 = (K1 * L) * (K1 * L);
+    constexpr double C2 = (K2 * L) * (K2 * L);
 
     constexpr int window_size = 8; // 8x8 blocks.
     double ssim_sum = 0.0;
@@ -183,15 +184,15 @@ double ssim(const PgmImage *img1, const PgmImage *img2) {
     for (uint32_t i = 0; i < img1->height_; i += window_size) {
         for (uint32_t j = 0; j < img1->width_; j += window_size) {
             // Determine the actual block size
-            uint32_t block_h = ((i + window_size) > img1->height_) ? (img1->height_ - i) : window_size;
-            uint32_t block_w = ((j + window_size) > img1->width_) ? (img1->width_ - j) : window_size;
-            int win_n = block_h * block_w;
+            const uint32_t block_h = ((i + window_size) > img1->height_) ? (img1->height_ - i) : window_size;
+            const uint32_t block_w = ((j + window_size) > img1->width_) ? (img1->width_ - j) : window_size;
+            const uint32_t win_n = block_h * block_w;
 
             // Compute means
             double mu1 = 0.0, mu2 = 0.0;
             for (uint32_t r = 0; r < block_h; r++) {
                 for (uint32_t c = 0; c < block_w; c++) {
-                    uint32_t idx = (i + r) * img1->width_ + (j + c);
+                    const uint32_t idx = (i + r) * img1->width_ + (j + c);
                     mu1 += (double)img1->data_[idx];
                     mu2 += (double)img2->data_[idx];
                 }
@@ -203,9 +204,9 @@ double ssim(const PgmImage *img1, const PgmImage *img2) {
             double sigma1_sq = 0.0, sigma2_sq = 0.0, sigma12 = 0.0;
             for (uint32_t r = 0; r < block_h; r++) {
                 for (uint32_t c = 0; c < block_w; c++) {
-                    uint32_t idx = (i + r) * img1->width_ + (j + c);
-                    double p1 = (double)img1->data_[idx];
-                    double p2 = (double)img2->data_[idx];
+                    const uint32_t idx = (i + r) * img1->width_ + (j + c);
+                    const double p1 = img1->data_[idx];
+                    const double p2 = img2->data_[idx];
                     sigma1_sq += (p1 - mu1) * (p1 - mu1);
                     sigma2_sq += (p2 - mu2) * (p2 - mu2);
                     sigma12   += (p1 - mu1) * (p2 - mu2);
@@ -216,9 +217,9 @@ double ssim(const PgmImage *img1, const PgmImage *img2) {
             sigma12   /= (win_n > 1 ? (win_n - 1) : 1);
 
             // Compute the SSIM for this block (using the constants C1 and C2 defined earlier)
-            double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
-            double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
-            double ssim_val = numerator / denominator;
+            const double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
+            const double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
+            const double ssim_val = numerator / denominator;
             ssim_sum += ssim_val;
             count++;
         }
@@ -236,30 +237,30 @@ double ssim_overlapping(const PgmImage *img1, const PgmImage *img2) {
     }
 
     // Constants as per the SSIM paper.
-    const double K1 = 0.01;
-    const double K2 = 0.03;
-    const double L = 255.0; // Dynamic range of pixel values.
-    const double C1 = (K1 * L) * (K1 * L);
-    const double C2 = (K2 * L) * (K2 * L);
+    constexpr double K1 = 0.01;
+    constexpr double K2 = 0.03;
+    constexpr double L = 255.0; // Dynamic range of pixel values.
+    constexpr double C1 = (K1 * L) * (K1 * L);
+    constexpr double C2 = (K2 * L) * (K2 * L);
 
-    constexpr int window_size = 8; // 8x8 blocks.
     double ssim_sum = 0.0;
     int count = 0;
 
-    const int stride = 4;
+    constexpr int stride = 4;
     for (uint32_t i = 0; i < img1->height_ - 1; i += stride) {
         for (uint32_t j = 0; j < img1->width_ - 1; j += stride) {
+            constexpr int window_size = 8;
             // Define window boundaries: if the window goes beyond the image,
             // compute using available pixels (or pad them via mirroring, if preferred)
-            uint32_t block_h = (i + window_size > img1->height_) ? (img1->height_ - i) : window_size;
-            uint32_t block_w = (j + window_size > img1->width_) ? (img1->width_ - j) : window_size;
-            int win_n = block_h * block_w;
+            const uint32_t block_h = (i + window_size > img1->height_) ? (img1->height_ - i) : window_size;
+            const uint32_t block_w = (j + window_size > img1->width_) ? (img1->width_ - j) : window_size;
+            const uint32_t win_n = block_h * block_w;
 
             // Compute means
             double mu1 = 0.0, mu2 = 0.0;
             for (uint32_t r = 0; r < block_h; r++) {
                 for (uint32_t c = 0; c < block_w; c++) {
-                    uint32_t idx = (i + r) * img1->width_ + (j + c);
+                    const uint32_t idx = (i + r) * img1->width_ + (j + c);
                     mu1 += (double)img1->data_[idx];
                     mu2 += (double)img2->data_[idx];
                 }
@@ -271,9 +272,9 @@ double ssim_overlapping(const PgmImage *img1, const PgmImage *img2) {
             double sigma1_sq = 0.0, sigma2_sq = 0.0, sigma12 = 0.0;
             for (uint32_t r = 0; r < block_h; r++) {
                 for (uint32_t c = 0; c < block_w; c++) {
-                    uint32_t idx = (i + r) * img1->width_ + (j + c);
-                    double p1 = (double)img1->data_[idx];
-                    double p2 = (double)img2->data_[idx];
+                    const uint32_t idx = (i + r) * img1->width_ + (j + c);
+                    const double p1 = img1->data_[idx];
+                    const double p2 = img2->data_[idx];
                     sigma1_sq += (p1 - mu1) * (p1 - mu1);
                     sigma2_sq += (p2 - mu2) * (p2 - mu2);
                     sigma12   += (p1 - mu1) * (p2 - mu2);
@@ -284,9 +285,9 @@ double ssim_overlapping(const PgmImage *img1, const PgmImage *img2) {
             sigma12   /= (win_n > 1 ? (win_n - 1) : 1);
 
             // Compute the SSIM for this block (using the constants C1 and C2 defined earlier)
-            double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
-            double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
-            double ssim_val = numerator / denominator;
+            const double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
+            const double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
+            const double ssim_val = numerator / denominator;
             ssim_sum += ssim_val;
             count++;
         }
@@ -303,26 +304,24 @@ double ssim_loss_function(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
 
     // Compute the SSIM index with the target image.
-    double ssim_index = ssim(pgm, target);
+    const double ssim_index = ssim(pgm, target);
 
-    // Free the generated image.
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
 
     // Return loss (0 loss for identical images).
     return (1.0 - ssim_index) * (1.0 - ssim_index); // Squared to make it more sensitive to small changes.
 }
 
 double adaptive_local_ssim(const PgmImage *img1, const PgmImage *img2,
-                             uint32_t i, uint32_t j, uint32_t window_size,
-                             double threshold, double low_weight) {
+                             const uint32_t i, const uint32_t j, const uint32_t window_size,
+                             const double threshold, const double low_weight) {
     double mu1 = 0.0, mu2 = 0.0;
-    uint32_t win_n = window_size * window_size;
+    const uint32_t win_n = window_size * window_size;
 
     // Compute means over the window.
     for (uint32_t r = 0; r < window_size; r++) {
         for (uint32_t c = 0; c < window_size; c++) {
-            uint32_t idx = (i + r) * img1->width_ + (j + c);
+            const uint32_t idx = (i + r) * img1->width_ + (j + c);
             mu1 += (double)img1->data_[idx];
             mu2 += (double)img2->data_[idx];
         }
@@ -334,9 +333,9 @@ double adaptive_local_ssim(const PgmImage *img1, const PgmImage *img2,
     double sigma1_sq = 0.0, sigma2_sq = 0.0, sigma12 = 0.0;
     for (uint32_t r = 0; r < window_size; r++) {
         for (uint32_t c = 0; c < window_size; c++) {
-            uint32_t idx = (i + r) * img1->width_ + (j + c);
-            double pix1 = (double)img1->data_[idx];
-            double pix2 = (double)img2->data_[idx];
+            const uint32_t idx = (i + r) * img1->width_ + (j + c);
+            const double pix1 = img1->data_[idx];
+            const double pix2 = img2->data_[idx];
             sigma1_sq += (pix1 - mu1) * (pix1 - mu1);
             sigma2_sq += (pix2 - mu2) * (pix2 - mu2);
             sigma12   += (pix1 - mu1) * (pix2 - mu2);
@@ -347,37 +346,37 @@ double adaptive_local_ssim(const PgmImage *img1, const PgmImage *img2,
     sigma12   /= (win_n - 1);
 
     // Compute the raw SSIM value for this window.
-    const double K1 = 0.01;
-    const double K2 = 0.03;
-    const double L = 255.0;
-    const double C1 = (K1 * L) * (K1 * L);
-    const double C2 = (K2 * L) * (K2 * L);
-    double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
-    double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
-    double ssim_val = numerator / denominator;
+    constexpr double K1 = 0.01;
+    constexpr double K2 = 0.03;
+    constexpr double L = 255.0;
+    constexpr double C1 = (K1 * L) * (K1 * L);
+    constexpr double C2 = (K2 * L) * (K2 * L);
+    const double numerator = (2 * mu1 * mu2 + C1) * (2 * sigma12 + C2);
+    const double denominator = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
+    const double ssim_val = numerator / denominator;
 
-    double local_variance = sigma2_sq;
+    const double local_variance = sigma2_sq;
 
     // Determine a weight based on the local variance.
     // If variance is too low, reduce the influence of the local window.
-    double weight = (local_variance < threshold) ? low_weight : 1.0;
+    const double weight = (local_variance < threshold) ? low_weight : 1.0;
 
     return weight * ssim_val;
 }
 
-double variance_of_image(PgmImage *pgm) {
+double variance_of_image(const PgmImage *pgm) {
     double sum = 0.0;
-    uint32_t count = pgm->width_ * pgm->height_;
+    const uint32_t count = pgm->width_ * pgm->height_;
     for (uint32_t i = 0; i < pgm->height_; i++) {
         for (uint32_t j = 0; j < pgm->width_; j++) {
             sum += (double)pgm->data_[i * pgm->width_ + j];
         }
     }
-    double mean = sum / count;
+    const double mean = sum / count;
     double variance = 0.0;
     for (uint32_t i = 0; i < pgm->height_; i++) {
         for (uint32_t j = 0; j < pgm->width_; j++) {
-            double diff = (double)pgm->data_[i * pgm->width_ + j] - mean;
+            const double diff = (double)pgm->data_[i * pgm->width_ + j] - mean;
             variance += diff * diff;
         }
     }
@@ -389,29 +388,28 @@ double adaptive_ssim_loss_function(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
 
     // Adaptive local SSIM.
-    const uint32_t window_size = 8;
+    constexpr uint32_t window_size = 8;
     const double global_variance = variance_of_image(target);
     const double variance_threshold = 0.05 * global_variance;  // Experimentally determined.
-    const double low_weight = 0.05;           // Down-weight uniform regions.
     double local_ssim_sum = 0.0;
     int count = 0;
 
     // Use a stride (you may choose to make it overlapping or not).
-    const uint32_t stride = 4;
+    constexpr uint32_t stride = 4;
     for (uint32_t i = 0; i <= pgm->height_ - window_size; i += stride) {
         for (uint32_t j = 0; j <= pgm->width_ - window_size; j += stride) {
+            constexpr double low_weight = 0.05;
             local_ssim_sum += adaptive_local_ssim(pgm, target, i, j, window_size, variance_threshold, low_weight);
             count++;
         }
     }
 
-    double avg_local_ssim = (count > 0) ? local_ssim_sum / count : 0.0;
+    const double avg_local_ssim = (count > 0) ? local_ssim_sum / count : 0.0;
 
     // Define the loss as 1 - combined SSIM (0 loss is perfect).
-    double loss = (1.0 - avg_local_ssim) * (1.0 - avg_local_ssim); // Squared to make it more sensitive to small changes.
+    const double loss = (1.0 - avg_local_ssim) * (1.0 - avg_local_ssim); // Squared to make it more sensitive to small changes.
 
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
     return loss;
 }
 
@@ -420,11 +418,9 @@ double ssim_overlapping_loss_function(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
 
     // Compute the SSIM index with the target image.
-    double ssim_index = ssim_overlapping(pgm, target);
+    const double ssim_index = ssim_overlapping(pgm, target);
 
-    // Free the generated image.
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
 
     // Return loss (0 loss for identical images).
     return (1.0 - ssim_index) * (1.0 - ssim_index); // Squared to make it more sensitive to small changes.
@@ -436,8 +432,7 @@ double ssim_overlapping_and_global(const Chromosome *chromosome) {
     const double global_loss = global_ssim(pgm, target);
     const double local_loss = ssim_overlapping(pgm, target);
 
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
     return (1 - global_loss) * (1 - global_loss) + local_loss;
 }
 
@@ -446,24 +441,21 @@ double ssim_adaptive_and_global_loss_function(const Chromosome *chromosome) {
     const double global_loss = global_ssim(pgm, target);
     const double local_loss = adaptive_ssim_loss_function(chromosome);
 
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
     return (1 - global_loss) * (1 - global_loss) + 2 * local_loss;
 }
 
 double mse_loss_function(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
     const double loss = mse(pgm, target);
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
     return loss;
 }
 
 double global_ssim_loss_function(const Chromosome *chromosome) {
     PgmImage *pgm = chromosomeToPgm(chromosome);
     const double loss = global_ssim(pgm, target);
-    free(pgm->data_);
-    free(pgm);
+    FreePgm(pgm);
     return (1 - loss) * (1 - loss); // SSIM is between 0 and 1, so we want to maximize it. squaring it makes it more sensitive to small changes.
 }
 
@@ -472,7 +464,7 @@ double global_ssim_loss_function(const Chromosome *chromosome) {
 void mutation_function(Chromosome *chromosome) {
     const int nr_of_genes_to_mutate = (int)(CHROMOSOME_SIZE * mutation_rate);
     for (int i = 0; i < nr_of_genes_to_mutate; i++) {
-        const int index = fast_rand() % CHROMOSOME_SIZE;
+        const uint32_t index = fast_rand() % CHROMOSOME_SIZE;
         // Flip the bit at the index
         chromosome->genes[index] = (chromosome->genes[index] == 0) ? 255 : 0;
     }
@@ -487,7 +479,7 @@ void crossover_function(const Chromosome *parent1, const Chromosome *parent2, Ch
     }
     const int nr_of_genes_from_parent2 = (int)(CHROMOSOME_SIZE * crossover_degree);
     for (int i = 0; i < nr_of_genes_from_parent2; i++) {
-        const int index = fast_rand() % CHROMOSOME_SIZE;
+        const uint32_t index = fast_rand() % CHROMOSOME_SIZE;
         child->genes[index] = parent2->genes[index];
     }
 }
@@ -518,10 +510,9 @@ Chromosome * initialize_population_of_threshold(const LossFunction lossFunc) {
         // mutate to create diversity
         mutation_function(&population[i]);
         population[i].loss = lossFunc(&population[i]);
-        free(pbm->data_);
-        free(pbm);
-        free(pgm->data_);
-        free(pgm);
+
+        FreePbm(pbm);
+        FreePgm(pgm);
     }
     mutation_rate = old_mutation_rate;
     return population;
@@ -598,8 +589,11 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
     // Initialize population and seed random number generator
     rand_state = (uint32_t)time(nullptr); // For random seed
     Chromosome *population = initialize_population(lossFunc);
+
+    // To fall back on when a population is too similar
     Chromosome *previous_population = malloc(sizeof(Chromosome) * POOL_SIZE);
 
+    // Used to detect a too small decease in loss
     double recent_best_losses[HYPERPARAMETER_HISTORY];
     double recent_best_losses_diffs[HYPERPARAMETER_HISTORY - 1];
     memset(recent_best_losses, INFINITY, sizeof(recent_best_losses));
@@ -631,6 +625,7 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
 
         printf("Generation %d: Best Loss = %f, mutation rate: %f, crossover rate: %f, crossover degree: %f, average loss decrease: %f, threshold: %f\n", gen, population[top_index].loss, mutation_rate, crossover_rate, crossover_degree, sum_average_best_losses_diffs, hyperparameter_threshold);
 
+        // Keep the best chromosome
         new_population[0] = population[top_index];
         int too_similar = 0;
         // Create new population array
@@ -660,7 +655,7 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
             gen--;
             continue;
         }
-#pragma omp parallel for
+#pragma omp parallel for default(none) shared(new_population, lossFunc) schedule(static)
         for (int i = 1; i < POOL_SIZE; i++) {
             new_population[i].loss = lossFunc(&new_population[i]);
         }
@@ -676,13 +671,11 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
             sprintf(filename, "../output/dithered_ssim_adapt_glob_%i.pgm", gen);
             WritePgm(dithered, filename);
 
-            free(dithered->data_);
-            free(dithered);
+            FreePgm(dithered);
             free(filename);
         }
 
         free(new_population);
-        
     }
 
     // At the end, you can print the best chromosome found.
@@ -704,14 +697,6 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
 int main(void) {
     target = ReadPgm("../images/AnyConv.com__groepsfoto_resized_smaller_scaled.pgm");
 
-    // PbmImage *dithered_ = PgmToPbm(target, MiddleThreshold);
-    //
-    // PgmImage *dithered = PbmToPgm(dithered_);
-    //
-    // double loss = mse(target, dithered);
-    //
-    // printf("%f\n", loss);
-
     if (target->width_ * target->height_ != CHROMOSOME_SIZE) {
         fprintf(stderr, "Error: image must be of size %i\n", CHROMOSOME_SIZE);
     }
@@ -720,10 +705,7 @@ int main(void) {
     PgmImage *dithered = chromosomeToPgm(&result);
     WritePgm(dithered, "../output/dithered_ssim_adapt_glob.pgm");
 
-    free(target->data_);
-    free(target);
-    // free(dithered_);
-    free(dithered->data_);
-    free(dithered);
+    FreePgm(target);
+    FreePgm(dithered);
     return 0;
 }
