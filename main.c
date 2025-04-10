@@ -17,18 +17,24 @@
 #define CROSSOVER_RATE_CHANGE 0.05
 #define CROSSOVER_DEGREE_CHANGE 0.97
 #define HYPERPARAMETER_HISTORY 20
+#define ORIGINAL_MUTATION_RATE 0.0005
+#define ORIGINAL_CROSSOVER_RATE 0.75
+#define ORIGINAL_CROSSOVER_DEGREE 0.35
+#define ORIGINAL_HYPERPARAMETER_THRESHOLD 0.0001
+#define RESET_MULTIPLIER 0.1
 
 PgmImage *target;
-constexpr double original_mutation_rate = 0.0005;
-constexpr double original_crossover_rate = 0.75;
-constexpr double original_crossover_degree = 0.35;
-constexpr double original_hyperparameter_threshold = 0.0001;
-constexpr double reset_multiplier = 0.1;
+
+// The idea is that the hyperparameters are changed when the loss is no longer decreasing as much
+// However, at some point, the chromosomes in the pool become too similar, causing early convergence.
+// To avoid this, when early convergence is detected, we reset the hyperparameters to their original values.
+// But not really their original values, but a few steps ahead of the original values. This is done to more quickly
+// get to values that work well.
 double hyperparameter_threshold_change = 0.75;
-double mutation_rate = original_mutation_rate;
-double crossover_rate = original_crossover_rate;
-double crossover_degree = original_crossover_degree;
-double hyperparameter_threshold = original_hyperparameter_threshold;
+double mutation_rate = ORIGINAL_MUTATION_RATE;
+double crossover_rate = ORIGINAL_CROSSOVER_RATE;
+double crossover_degree = ORIGINAL_CROSSOVER_DEGREE;
+double hyperparameter_threshold = ORIGINAL_HYPERPARAMETER_THRESHOLD;
 int reset_counter = 100;
 
 // --- Individual Chromosome Structure ---
@@ -643,10 +649,10 @@ Chromosome genetic_algorithm(const LossFunction lossFunc, const MutationFunction
         }
         if (too_similar) {
             fprintf(stderr, "Error: No longer selecting fittest chromosome because the pool is too similar. Trying to increase exploration.\n");
-            mutation_rate = original_mutation_rate * pow(MUTATION_RATE_CHANGE, 1 + reset_counter * reset_multiplier);
-            crossover_rate = original_crossover_rate * pow(CROSSOVER_RATE_CHANGE, 1 + reset_counter * reset_multiplier);
-            crossover_degree = original_crossover_degree * pow(CROSSOVER_DEGREE_CHANGE, 1 + reset_counter * reset_multiplier);
-            hyperparameter_threshold = original_hyperparameter_threshold * pow(hyperparameter_threshold_change, 1 + reset_counter * reset_multiplier);
+            mutation_rate = ORIGINAL_MUTATION_RATE * pow(MUTATION_RATE_CHANGE, 1 + reset_counter * RESET_MULTIPLIER);
+            crossover_rate = ORIGINAL_CROSSOVER_RATE * pow(CROSSOVER_RATE_CHANGE, 1 + reset_counter * RESET_MULTIPLIER);
+            crossover_degree = ORIGINAL_CROSSOVER_DEGREE * pow(CROSSOVER_DEGREE_CHANGE, 1 + reset_counter * RESET_MULTIPLIER);
+            hyperparameter_threshold = ORIGINAL_HYPERPARAMETER_THRESHOLD * pow(hyperparameter_threshold_change, 1 + reset_counter * RESET_MULTIPLIER);
             hyperparameter_threshold_change = 0.4;
             reset_counter++;
             free(new_population);
